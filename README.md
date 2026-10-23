@@ -1,41 +1,32 @@
-# AeroDeck Ops — iPad / phone flight operations workspace
+# AeroSlate FlightOps
 
-A **new** standalone Flask application combining AeroSlate-style OpenSky aircraft discovery, a VATSIM live traffic viewer, SimBrief OFP import, a manual digital logbook, and optional OpenAI-generated *simulated* mission briefs. Responsive blue/gray UI, no maps, Zulu time throughout.
+New mobile/tablet-first Flask app combining FR24 paste-based flight discovery, mission operations, VATSIM live lookup, SimBrief website handoff, and a draft/final flight logbook. **Not for real-world dispatch or regulatory flight logging without independent verification.**
 
-## Included features
+## Deploy to GitHub + Render Free
+1. Create a new GitHub repository and upload **all project files**, preserving folders and `render.yaml`.
+2. In Render, choose **New → Blueprint** and connect the repo. Confirm `plan: free` before deployment.
+3. Open the Render URL on iPad or iPhone. Use the **Flight discovery** tab.
+4. Optional AI: set `OPENAI_API_KEY` as a **secret environment variable** in Render. OpenAI API use is **not free**; don't set it if you need strictly zero cost.
+5. To enable worldwide airport selection, download the actual OpenFlights `airports.dat` from https://github.com/jpatokal/openflights/blob/master/data/airports.dat and commit it to `data/airports.dat`. A small offline starter file is included. OpenFlights does not provide a large/medium/small classification; size uses an explicitly approximate curated list, with remaining airports considered small.
 
-- Aircraft generator: OpenSky `/states/all` live state vectors, randomized, filters for model/registration **only when aircraft metadata is uploaded**. The CSV is indexed by `icao24`, so no per-aircraft HexDB calls. Upload metadata in Settings (`icao24,registration,manufacturer,model,typecode`). Aircraft state data comes from OpenSky; metadata must be supplied separately. Without metadata, random aircraft still work but type and registration are generally unknown.
-- VATSIM: public live V3 pilot feed, callsign/route search, prefill logbook or mission. **Not historical flight reconstruction, automatic OOOI tracking, or an authenticated VATSIM logbook sync.**
-- SimBrief: fetch latest OFP from `https://www.simbrief.com/api/xml.fetcher.php?userid=...` using your numeric SimBrief user ID; prefill logbook/mission. SimBrief may change availability or field names.
-- Logbook: manual entries with UTC dates/times, decimal hours, CSV export/import, delete, totals. **No FAA/EASA certification or automatic duty/legality calculations.**
-- Mission ops: deterministic free scenario generator plus optional OpenAI API-backed simulated dispatch-style briefs; save/read/mark flown. **Not a real flight release, no verified weather, NOTAMs, fuel prices, or operational authorizations.**
-- API health endpoint `/api/health`.
+## How flight discovery works
+Select or randomize an airport → open its FR24 airport page → select arrivals/departures on FR24 → copy flight table text → return and paste → parse → choose Mission or Logbook. Parser uses best-effort extraction of identifiers/registration/type and **never fabricates missing route information**. FR24 clipboard formats vary and may require refinement for a specific sample. The FR24 website may not allow copying tables easily on some devices.
 
-## Deploy on Render Free
+## Integrations and limits
+- **VATSIM**: live public `https://data.vatsim.net/v3/vatsim-data.json`, manual refresh, matching callsign or CID; no historical tracking or automatic OOOI.
+- **SimBrief**: opens official SimBrief dispatch options with best-effort query parameters. Not authenticated API integration or OFP import.
+- **OpenAI**: optional `POST /v1/responses` server-side. Paid usage, user-provided API key; generated brief is explicitly unverified.
+- **FR24**: opens FR24 website; parsing of pasted text is local to your backend. No scraping or FR24 API credentials.
+- **Database**: SQLite at `data/aeroslate.db`. Render Free filesystem is **ephemeral**, so records can disappear after restart/deploy. Export CSV and JSON backups frequently. **This build is not reliable permanent cloud logbook storage.** For durable zero-cost storage, add an external free-tier database with clear quotas or a client-side export/backup workflow. Do not use Render paid disks.
+- **Airport size**: OpenFlights `airports.dat` lacks size metadata. Heuristic curated lists are used. Not an authoritative size/runway categorization.
+- **No map**. Zulu-only time labels. Single Gunicorn worker avoids SQLite concurrency surprises.
 
-1. Unzip, create a GitHub repo, and commit **all files**, including `render.yaml`.
-2. In Render select **New → Blueprint**, connect the repo, and inspect the YAML. The service explicitly uses `plan: free`.
-3. Set `OPENAI_API_KEY` as a **secret environment variable only if you want AI missions**. This is an OpenAI paid API and is **not included in Render Free**; leave unset for fully free Standard missions.
-4. Open your `onrender.com` URL from Safari on iPad/iPhone.
-5. Test `/api/health`, then Aircraft discovery. Render outbound networking might still be blocked or rate-limited by OpenSky; hosting does **not** guarantee OpenSky access.
-
-**IMPORTANT DATA WARNING:** Render Free's filesystem is ephemeral; local SQLite flights, mission records and uploaded metadata can be erased on restart/redeploy. Export the logbook CSV often and keep your original aircraft CSV. **Do not treat Render Free as durable logbook storage.** For permanent storage, migrate to a free database with durable quotas or an Always Free VM with persistent boot storage. This package does not claim permanent cloud persistence.
-
-## Run locally for development
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
+## Local test
+```
 pip install -r requirements.txt
 python app.py
 ```
+Open http://localhost:5000
 
-Visit http://127.0.0.1:5000.
-
-## Security and constraints
-
-This starter has no login system; **do not enter sensitive personal data into a publicly accessible deployment**. Add authentication before using it as a personal production logbook. Do not expose OpenAI keys in client-side JavaScript. Requests to public APIs may fail or be rate-limited. Only use simulated mission briefs for training/planning; verify all operational data from official sources. API usage from OpenAI may incur charges.
-
-## Status
-
-This is a deployable **first-release foundation**, not a full port of every feature in the previous three desktop/web applications. In particular it does not yet include VATSIM historical tracks, SimBrief OFP PDF parsing, duty calculations, actual aircraft-specific performance, automated OOOI logging, or end-to-end authenticated flight logging. External service connectivity has not been tested from a live Render deployment.
+## What remains to build for full parity with earlier apps
+This is a working foundation, **not a complete reconstruction** of all historic AeroSlate/VATSIM/Aero Mission Ops functionality. Missing: historical VATSIM track/OOOI, OFP PDF ingestion, verified dispatch performance and legality, automated job board, authenticated SimBrief retrieval, real flight data validation, complex international paperwork and reliable persistent hosted logbook. These should be implemented as explicit next phases rather than represented as working.
